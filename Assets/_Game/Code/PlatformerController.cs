@@ -14,10 +14,14 @@ public class PlatformerController : MonoBehaviour
     private Rigidbody2D rb;
     private bool isGrounded;
     private float moveInput;
+
+    private Animator anim;
     
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        anim = GetComponent<Animator>();
         
         // Set to Dynamic with gravity
         rb.bodyType = RigidbodyType2D.Dynamic;
@@ -27,6 +31,7 @@ public class PlatformerController : MonoBehaviour
     
     void Update()
     {
+
         // Get horizontal input
         moveInput = Input.GetAxisRaw("Horizontal");
         
