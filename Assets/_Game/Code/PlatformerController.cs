@@ -2,20 +2,24 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Collections.Generic;
 using System.Collections;
+using TMPro;
 
 public class CharacterController2D : MonoBehaviour
 {
-    [SerializeField] public float m_JumpForce = 400f;                          // Amount of force added when the player jumps.
-    [Range(0, .3f)][SerializeField] private float m_MovementSmoothing = .05f;   // How much to smooth out the movement
-    [SerializeField] private bool m_AirControl = false;                         // Whether or not a player can steer while jumping;
-    [SerializeField] private LayerMask m_WhatIsGround;                          // A mask determining what is ground to the character
-    [SerializeField] private Transform m_GroundCheck;                           // A position marking where to check if the player is grounded.
+    [SerializeField] public float m_JumpForce = 400f;
+    [Range(0, .3f)][SerializeField] private float m_MovementSmoothing = .05f;
+    [SerializeField] private bool m_AirControl = false;
+    [SerializeField] private LayerMask m_WhatIsGround;
+    [SerializeField] private Transform m_GroundCheck;
 
-    const float k_GroundedRadius = .2f; // Radius of the overlap circle to determine if grounded
-    private bool m_Grounded;            // Whether or not the player is grounded.
+    const float k_GroundedRadius = .2f;
+    private bool m_Grounded;
     private Rigidbody2D m_Rigidbody2D;
-    private bool m_FacingRight = true;  // For determining which way the player is currently facing.
+    private bool m_FacingRight = true;
     private Vector3 m_Velocity = Vector3.zero;
+
+    public int health = 10;
+    public TMP_Text healthText;
 
     [Header("Events")]
     [Space]
@@ -24,9 +28,13 @@ public class CharacterController2D : MonoBehaviour
     private void Awake()
     {
         m_Rigidbody2D = GetComponent<Rigidbody2D>();
-
         if (OnLandEvent == null)
             OnLandEvent = new UnityEvent();
+    }
+
+    void Start()
+    {
+        UpdateHealthText();
     }
 
     private void FixedUpdate()
@@ -34,7 +42,6 @@ public class CharacterController2D : MonoBehaviour
         bool wasGrounded = m_Grounded;
         m_Grounded = false;
 
-        // The player is grounded if a circlecast to the groundcheck position hits anything designated as ground
         Collider2D[] colliders = Physics2D.OverlapCircleAll(m_GroundCheck.position, k_GroundedRadius, m_WhatIsGround);
         for (int i = 0; i < colliders.Length; i++)
         {
@@ -47,18 +54,13 @@ public class CharacterController2D : MonoBehaviour
         }
     }
 
-    // Crouch removed: signature no longer includes 'crouch'
     public void Move(float move, bool jump)
     {
-        // Only control the player if grounded or airControl is turned on
         if (m_Grounded || m_AirControl)
         {
-            // Move the character by finding the target velocity
             Vector3 targetVelocity = new Vector2(move * 10f, m_Rigidbody2D.linearVelocity.y);
-            // Smooth and apply
             m_Rigidbody2D.linearVelocity = Vector3.SmoothDamp(m_Rigidbody2D.linearVelocity, targetVelocity, ref m_Velocity, m_MovementSmoothing);
 
-            // Handle facing direction
             if (move > 0 && !m_FacingRight)
             {
                 Flip();
@@ -69,7 +71,6 @@ public class CharacterController2D : MonoBehaviour
             }
         }
 
-        // Jump
         if (m_Grounded && jump)
         {
             m_Grounded = true;
@@ -77,12 +78,26 @@ public class CharacterController2D : MonoBehaviour
         }
     }
 
+    public void TakeDamage(int amount)
+    {
+        health -= amount;
+        if (health < 0) health = 0;
+        UpdateHealthText();
+        if (health <= 0)
+        {
+            health = 0;
+        }
+    }
+
+    void UpdateHealthText()
+    {
+        if (healthText != null)
+            healthText.text = "Health: " + health;
+    }
+
     private void Flip()
     {
-        // Switch the way the player is labelled as facing.
         m_FacingRight = !m_FacingRight;
-
-        // Multiply the player's x local scale by -1.
         Vector3 theScale = transform.localScale;
         theScale.x *= -1;
         transform.localScale = theScale;
