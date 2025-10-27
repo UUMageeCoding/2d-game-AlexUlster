@@ -1,63 +1,105 @@
 using UnityEngine;
+using UnityEngine.Events;
+using System.Collections.Generic;
+using System.Collections;
+using TMPro;
 
-public class PlatformerController : MonoBehaviour
+public class CharacterController2D : MonoBehaviour
 {
-    [Header("Movement Settings")]
-    [SerializeField] private float moveSpeed = 7f;
-    [SerializeField] private float jumpForce = 12f;
-    
-    [Header("Ground Check")]
-    [SerializeField] private Transform groundCheck;
-    [SerializeField] private float groundCheckRadius = 0.2f;
-    [SerializeField] private LayerMask groundLayer;
-    
-    private Rigidbody2D rb;
-    private bool isGrounded;
-    private float moveInput;
+    [SerializeField] public float m_JumpForce = 400f;
+    [Range(0, .3f)][SerializeField] private float m_MovementSmoothing = .05f;
+    [SerializeField] private bool m_AirControl = false;
+    [SerializeField] private LayerMask m_WhatIsGround;
+    [SerializeField] private Transform m_GroundCheck;
 
-    private Animator anim;
-    
+    const float k_GroundedRadius = .2f;
+    private bool m_Grounded;
+    private Rigidbody2D m_Rigidbody2D;
+    private bool m_FacingRight = true;
+    private Vector3 m_Velocity = Vector3.zero;
+
+    public int health = 10;
+    public TMP_Text healthText;
+
+    [Header("Events")]
+    [Space]
+    public UnityEvent OnLandEvent;
+
+    private void Awake()
+    {
+        m_Rigidbody2D = GetComponent<Rigidbody2D>();
+        if (OnLandEvent == null)
+            OnLandEvent = new UnityEvent();
+    }
+
     void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
-
-        anim = GetComponent<Animator>();
-        
-        // Set to Dynamic with gravity
-        rb.bodyType = RigidbodyType2D.Dynamic;
-        rb.gravityScale = 3f;
-        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        UpdateHealthText();
     }
-    
-    void Update()
-    {
 
-        // Get horizontal input
-        moveInput = Input.GetAxisRaw("Horizontal");
-        
-        // Check if grounded
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-        
-        // Jump input
-        if (Input.GetButtonDown("Jump") && isGrounded)
+    private void FixedUpdate()
+    {
+        bool wasGrounded = m_Grounded;
+        m_Grounded = false;
+
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(m_GroundCheck.position, k_GroundedRadius, m_WhatIsGround);
+        for (int i = 0; i < colliders.Length; i++)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+            if (colliders[i].gameObject != gameObject)
+            {
+                m_Grounded = true;
+                if (!wasGrounded)
+                    OnLandEvent.Invoke();
+            }
         }
     }
-    
-    void FixedUpdate()
+
+    public void Move(float move, bool jump)
     {
-        // Apply horizontal movement
-        rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
-    }
-    
-    // Visualise ground check in editor
-    void OnDrawGizmosSelected()
-    {
-        if (groundCheck != null)
+        if (m_Grounded || m_AirControl)
         {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+            Vector3 targetVelocity = new Vector2(move * 10f, m_Rigidbody2D.linearVelocity.y);
+            m_Rigidbody2D.linearVelocity = Vector3.SmoothDamp(m_Rigidbody2D.linearVelocity, targetVelocity, ref m_Velocity, m_MovementSmoothing);
+
+            if (move > 0 && !m_FacingRight)
+            {
+                Flip();
+            }
+            else if (move < 0 && m_FacingRight)
+            {
+                Flip();
+            }
         }
+
+        if (m_Grounded && jump)
+        {
+            m_Grounded = true;
+            m_Rigidbody2D.AddForce(new Vector2(0f, m_JumpForce));
+        }
+    }
+
+    public void TakeDamage(int amount)
+    {
+        health -= amount;
+        if (health < 0) health = 0;
+        UpdateHealthText();
+        if (health <= 0)
+        {
+            health = 0;
+        }
+    }
+
+    void UpdateHealthText()
+    {
+        if (healthText != null)
+            healthText.text = "Health: " + health;
+    }
+
+    private void Flip()
+    {
+        m_FacingRight = !m_FacingRight;
+        Vector3 theScale = transform.localScale;
+        theScale.x *= -1;
+        transform.localScale = theScale;
     }
 }
